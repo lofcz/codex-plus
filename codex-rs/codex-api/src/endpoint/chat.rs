@@ -107,7 +107,9 @@ enum ChatMessage {
         content: ChatContent,
     },
     Assistant {
-        content: Option<String>,
+        // DashScope/Qwen chat templates require a string `content` on every message;
+        // an assistant turn with only tool calls or reasoning must send "", not null.
+        content: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         reasoning_content: Option<String>,
         #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -435,7 +437,7 @@ fn chat_messages_from_items(items: Vec<ResponseItem>) -> Result<Vec<ChatMessage>
                             // consecutive assistant messages don't overwrite each other.
                             if pending_assistant_content.is_some() {
                                 messages.push(ChatMessage::Assistant {
-                                    content: pending_assistant_content.take(),
+                                    content: pending_assistant_content.take().unwrap_or_default(),
                                     reasoning_content: pending_reasoning.take(),
                                     tool_calls: std::mem::take(&mut pending_tool_calls),
                                 });
@@ -779,7 +781,7 @@ fn flush_pending_assistant(
     }
     unmatched_tool_calls.extend(pending_tool_calls.iter().map(|call| call.id.clone()));
     messages.push(ChatMessage::Assistant {
-        content: pending_assistant_content.take(),
+        content: pending_assistant_content.take().unwrap_or_default(),
         reasoning_content: pending_reasoning.take(),
         tool_calls: std::mem::take(pending_tool_calls),
     });
@@ -1142,7 +1144,7 @@ mod tests {
                 {"role": "user", "content": "hello"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "tool_calls": [{
                         "id": "call-1",
                         "type": "function",
@@ -1433,7 +1435,7 @@ mod tests {
                 {"role": "system", "content": "system prompt"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "tool_calls": [
                         {
                             "id": "call-alpha",
@@ -1528,7 +1530,7 @@ mod tests {
                 {"role": "system", "content": "system prompt"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "tool_calls": [
                         {
                             "id": "call-alpha",
@@ -1600,7 +1602,7 @@ mod tests {
                 {"role": "system", "content": "system prompt"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "tool_calls": [{
                         "id": "call-namespace",
                         "type": "function",
@@ -1744,7 +1746,7 @@ mod tests {
                 {"role": "system", "content": "system prompt"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "tool_calls": [{
                         "id": "call-dup",
                         "type": "function",
@@ -1757,7 +1759,7 @@ mod tests {
                 {"role": "tool", "tool_call_id": "call-dup", "content": "one"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "tool_calls": [{
                         "id": "call-dup",
                         "type": "function",
@@ -1864,7 +1866,7 @@ mod tests {
                 {"role": "system", "content": "system prompt"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "tool_calls": [{
                         "id": "call-custom",
                         "type": "function",
@@ -2182,7 +2184,7 @@ mod tests {
                 {"role": "user", "content": "check weather"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "reasoning_content": "I need to call the weather API",
                     "tool_calls": [{
                         "id": "call-1",
@@ -2407,7 +2409,7 @@ mod tests {
                 {"role": "user", "content": "what's the weather in Beijing and Shanghai?"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "reasoning_content": "Need to check Beijing weather first",
                     "tool_calls": [{
                         "id": "call-1",
@@ -2421,7 +2423,7 @@ mod tests {
                 {"role": "tool", "tool_call_id": "call-1", "content": "Sunny 25°C"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "reasoning_content": "Now check Shanghai",
                     "tool_calls": [{
                         "id": "call-2",
@@ -2468,7 +2470,7 @@ mod tests {
                 {"role": "system", "content": "system prompt"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "reasoning_content": "thinking about this"
                 },
                 {"role": "user", "content": "hello"}
@@ -2583,7 +2585,7 @@ mod tests {
                 {"role": "user", "content": "run ls"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "reasoning_content": "I'll run ls",
                     "tool_calls": [{
                         "id": "call-1",
@@ -2631,7 +2633,7 @@ mod tests {
                 {"role": "user", "content": "think about this"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "reasoning_content": "I am thinking deeply about this"
                 }
             ])
@@ -2738,7 +2740,7 @@ mod tests {
                 {"role": "user", "content": "apply a patch"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "reasoning_content": "I should apply a patch",
                     "tool_calls": [{
                         "id": "call-custom-1",
@@ -2786,7 +2788,7 @@ mod tests {
                 {"role": "user", "content": "do something"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "reasoning_content": "thinking before compaction"
                 },
                 {"role": "system", "content": "compact summary"}
@@ -2826,7 +2828,7 @@ mod tests {
                 {"role": "user", "content": "do something"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "reasoning_content": "thinking before context compaction"
                 },
                 {"role": "system", "content": "context compact"}
@@ -2940,7 +2942,7 @@ mod tests {
                 {"role": "system", "content": "system prompt"},
                 {
                     "role": "assistant",
-                    "content": null,
+                    "content": "",
                     "tool_calls": [{
                         "id": "call-1",
                         "type": "function",
